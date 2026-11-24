@@ -40,8 +40,30 @@ for typical source trees.
 | Works without repo access remotely | ✔ | ✔ | ✗ | ✔ |
 | Wrapper-folder risk | — | — | — | ✗ handled by staging |
 | Secret leakage risk | ✗ manual | ✗ manual | ✔ (gitignore) | ~ handled by denylist |
-| Auditable record | ✗ | ~ patch file | ✔ commit | ✔ archive + report |
+| Auditable record | ✗ | ~ patch file | ✔ commit | ✔ archive + ledger |
 | Works with a chat-only model | ✔ | ✔ | ✗ | ✔ |
+| Per-item accountability | ✗ | ✗ | ~ review comments | ✔ ID ledger + checker |
+
+## Ledger versus report
+
+The older shape of this protocol had B AI write a separate `CHANGE_REPORT.md`.
+That shape fails in a predictable way: a report is a *summary*, and a summary is
+where laziness hides. B AI can write "all items addressed" without addressing
+them, and nothing in the report's structure contradicts that.
+
+A ledger fixes the failure by construction:
+
+| Property | Separate report | Ledger in the handoff |
+| --- | --- | --- |
+| Place to summarize instead of itemize | Exists | None — entries are per-ID |
+| Work must be written as it happens | Optional | Required, and the absence is visible |
+| A skipped ID is detectable mechanically | No | Yes, `check_ledger.py` |
+| A false claim is detectable | Only via diff | Via both ledger *and* diff |
+| Rework cost for a lazy round | A new report | Its own failure record, in the same file |
+
+The rule that makes it hold: B AI never receives a fresh document to write in.
+It appends to the one A AI wrote, item by item, and that document is the same
+one carrying the requirements and the review criteria.
 
 ## When to use something else
 

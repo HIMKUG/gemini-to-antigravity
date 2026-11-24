@@ -1,143 +1,217 @@
 ---
 name: gemini-to-antigravity
-description: Orchestrate asynchronous two-AI code collaboration between a local agent with Git and a build toolchain (A AI / Antigravity) and an unlimited-quota remote model with no local environment (B AI / Gemini). Use when delegating heavy code changes through a maximum-compression source ZIP plus a self-contained handoff prompt, or when receiving a modified ZIP back to overwrite a Git repo, review the diff, build release artifacts, and triage compile errors locally.
+description: Orchestrate asynchronous two-AI code collaboration between a local agent with Git and a build toolchain (A AI / Antigravity) and an unlimited-quota remote model with no local environment (B AI / Gemini). Use when delegating heavy code changes through a maximum-compression source ZIP plus a self-contained handoff ledger, or when receiving a modified ZIP back to verify the ledger against git diff, audit every item ID, build release artifacts, and triage compile errors locally.
 license: MIT
 ---
 
 # Gemini to Antigravity
 
-Coordinate a two-AI relay workflow where the local AI (A AI, with Git and build/compile tools) acts as commander, diagnostician, reviewer, and builder, while the remote AI (B AI, with unlimited quota and ZIP tools but no local build environment) executes heavy code changes.
+Coordinate a two-AI relay where the local AI (**A AI** — holds Git, the compiler, and the release gate) acts as diagnostician, reviewer, and builder, while the remote AI (**B AI** — unlimited quota, no toolchain) executes heavy code changes.
+
+The handoff document is not a description. It is a **ledger**: numbered items that B AI must close one by one, writing an entry for each as it goes, then auditing all of them before returning. A AI verifies the ledger against `git diff`.
 
 ## When to Use
 
-Use this skill in either phase of the relay workflow:
+* **Outbound (A AI → B AI)**: the user asks to package a project for Gemini, hand off a task/bug/feature, or prepare a handoff ZIP.
+* **Inbound (B AI → A AI)**: the user returns a modified ZIP and asks to apply it, review diffs, compile, build, or fix build errors.
+* **Rework**: the returned round failed review or build and must go back.
 
-* **Outbound (Delegate to B AI)**: The user asks to package the project for Gemini, hand off a task/bug/feature to the remote AI, or prepare a handoff ZIP.
+## The Ledger Model
 
-* **Inbound (Merge & Build from B AI)**: The user returns a modified ZIP from Gemini and asks to apply the changes, review diffs, compile, build a release executable or APK, or fix build errors.
+Three ID namespaces, assigned by A AI, never reused, never renumbered:
 
-## Phase 1: Outbound Delegation (A AI to B AI)
+| Prefix | Meaning | Required fields |
+| --- | --- | --- |
+| `F-nn` | **Confirmed fault** — reproduced or verified locally | locator, problem statement, evidence |
+| `U-nn` | **User requirement** — restated from the verbatim request as a checkable outcome | verbatim quote, acceptance test |
+| `S-nn` | **Suspect area** — unverified; B AI must audit and report findings | locator, why it is suspect |
+
+B AI answers every ID in §6 of the handoff, and audits every ID in §7 before returning. An ID with no entry is an incomplete round. An entry with no matching diff is a false claim.
+
+---
+
+## Phase 1: Outbound Delegation (A AI → B AI)
 
 ### 1. Local Pre-Diagnosis
 
-Before writing the handoff prompt, inspect the local repository to give B AI a head start and avoid wasted rounds:
+Read the request verbatim and preserve it byte-for-byte. Then inspect the repository and classify what you find into `F`, `U`, and `S`. Do not write the prompt until you can place every finding into one of the three.
 
-* Read the user's request carefully and preserve it verbatim.
+### 2. Writing the Handoff — the Five Rules
 
-* Locate relevant source files, error logs, stack traces, or architectural constraints related to the request.
+A handoff is "precise" when B AI cannot act without understanding. These rules enforce that.
 
-* Separate **Confirmed Issues** (verified with file paths and line numbers) from **Suspect Areas** (places you suspect might also have bugs, edge cases, or coupling issues that B AI should audit).
+**Rule 1 — Locate or downgrade.** Every `F-nn` begins with a locator.
+- Line range known → `path/to/file.ext:112-140`
+- Only the first line known → `path/to/file.ext:112`
+- Line unknown, file known → `path/to/file.ext`
+- Neither known → it is **not** a confirmed fault. It goes to `S-nn`, never to `F-nn`.
 
-### 2. Write a Self-Contained Handoff Prompt (`GEMINI_HANDOFF.md`)
+**Rule 2 — State the problem, never the remedy.** Describe what the code does now, what it must do instead, which input triggers the failure, and what the failure looks like. Write no patch, no suggested API, no "change X to Y", no sketch of the fix.
 
-B AI does not know this skill and has no local environment. Write `GEMINI_HANDOFF.md` at the root of the ZIP so B AI immediately understands the mission, constraints, and return format. Use this structure:
+Rationale: a remedy anchors B AI to A AI's first guess and hides whether B AI actually understood the fault. Stating only the problem forces B AI to derive a fix, and lets A AI review the result against a criterion that was fixed before the work started.
+
+**Rule 3 — Restate the user as verifiable items.** §1 holds the request verbatim and is never edited. §3 turns each sentence of it into `U-nn` with an observable acceptance test: "a paused task is skipped, not retried", not "fix the bug".
+
+**Rule 4 — Never blur confirmed with suspected.** `F-nn` means reproduced. `S-nn` means a hypothesis. B AI treats them differently: `F` must be fixed, `S` must be investigated and reported even when the answer is "nothing wrong here".
+
+**Rule 5 — One fault per ID.** Two symptoms in one entry means one of them gets fixed and the other silently survives.
+
+### 3. Handoff File Structure (`GEMINI_HANDOFF.md`, at the ZIP root)
 
 ```
 # Task Handoff for Remote Execution
 
 ## Environment Notice
-You are working on a complete snapshot of the project source code inside this ZIP. You do not have local build or compiler tools, so pay extra attention to imports, type signatures, dependency declarations, and cross-file symbol consistency.
+...
 
 ## 1. User Original Request (Verbatim)
-<Paste the user's exact request here>
+> <the user's exact words, unmodified>
 
-## 2. Confirmed Issues & Local Context (Found by Local AI)
-- <File path + line range>: <Concrete issue, root cause, or constraint>
+## 2. Fault Ledger (confirmed by local AI)
+### F-01 · `src/core/scheduler.ts:112-140`
+- **Problem:** <what the code does now, what it must do, which input triggers it, what breaks>
+- **Evidence:** <stack trace line, log line, reproduction command, or the assertion that failed>
+- **Must not:** <any boundary B AI could cross while fixing — a contract, a public API, a performance budget>
 
-## 3. Suspect Areas to Investigate
-- <File path or module>: <Why this area is suspect and what to check>
+## 3. Requirement Ledger (from the user, restated)
+### U-01 · "<verbatim fragment>"
+- **Acceptance:** <an observable outcome A AI can check in the diff or in a test>
 
-## 4. Deliverable & Return Contract
-When finished, return a single ZIP archive containing:
-1. The complete modified source tree preserving the exact relative directory structure of this archive.
-2. A `CHANGE_REPORT.md` file at the ZIP root containing:
-   - **Summary of Changes**: File-by-file list of what changed and why.
-   - **Findings on Suspect Areas**: What you checked and whether any additional issues were fixed.
-   - **Deleted Files**: Exact relative paths of any files you deleted (write `None` if no files were removed).
-   - **Build & Dependency Notes**: Any new packages, imports, permissions, or build steps the local AI should verify.
+## 4. Suspect Areas (unverified)
+### S-01 · `src/core/queue.ts`
+- **Why suspect:** <the coupling or invariant that made you distrust it>
+- **Check:** <the specific question B AI must answer, even if the answer is "clean">
 
+## 5. Execution Rules for You (B AI)
+<the eight rules below, verbatim>
+
+## 6. Execution Ledger — append one entry per ID as you go
+<template and an empty instruction line>
+
+## 7. Self-Audit Before Return
+<the audit table and its completion rules>
+
+## 8. Deliverable & Return Contract
+<the exact ZIP shape>
 ```
 
-### 3. Package Source Code with Maximum Compression
+### 4. §5 — the execution rules, written into the handoff
 
-Pack `GEMINI_HANDOFF.md` together with the complete clean source tree into a ZIP using maximum compression (deflate level 9):
+```
+1. Work through the IDs in order. If a fix must precede another, say so in the
+   entry and name the dependency.
+2. After finishing each ID, immediately append its entry to §6. Do not hold
+   entries and write them at the end; a batched ledger is a lost ledger.
+3. Never merge two IDs into one entry. One ID, one entry, one outcome.
+4. Every entry must name the files and the line ranges you changed, and state
+   how the change was verified.
+5. If an ID cannot be completed, write STATUS: FAILED and the exact blocker:
+   the error text, the file and line where you stopped, and what you tried.
+   A failed entry with real evidence is acceptable. Silence is not.
+6. Do not edit any file you have not named in an entry. If you must, add an
+   entry with a new ID, prefixed X-, and justify it.
+7. Do not delete any file without an entry naming its path.
+8. Before returning, complete §7 in full. Every ID from §2, §3 and §4 must
+   appear there with DONE, FAILED, or NOT-APPLICABLE, and every DONE must
+   point at the file and line range that proves it.
+```
 
-* Exclude `.git/` and heavy generated or cached directories so the archive stays small and clean: `node_modules/`, `target/`, `build/`, `dist/`, `.gradle/`, `.dart_tool/`, `__pycache__/`, `.venv/`, `.idea/`, `.vs/`, and `.DS_Store`. Respect `.gitignore` for build artifacts while ensuring all required source and config files are included.
+### 5. Package with Maximum Compression
 
-* Prefer Python's `zipfile` with `compression=zipfile.ZIP_DEFLATED, compresslevel=9` (cross-platform) or `zip -9 -r` when available.
+Pack `GEMINI_HANDOFF.md` with the complete clean source tree, DEFLATE level 9 (`zipfile.ZIP_DEFLATED`, `compresslevel=9`, or `zip -9 -r`).
 
-* Verify the resulting ZIP contains `GEMINI_HANDOFF.md` at its root and preserves the repository's relative directory layout.
+Exclude `.git/` and generated or cached directories: `node_modules/`, `target/`, `build/`, `dist/`, `.gradle/`, `.dart_tool/`, `__pycache__/`, `.venv/`, `.idea/`, `.vs/`, `.DS_Store`, plus any file holding a secret. Respect `.gitignore` for build artifacts while keeping every file the task needs.
 
-* Report the exact output ZIP path and file size to the user so they can manually pass it to B AI.
+Verify the archive: `GEMINI_HANDOFF.md` at the root, relative layout preserved, no `.env`/key material inside. Report the exact path and size.
 
-## Phase 2: Inbound Integration, Review & Build (B AI to A AI)
+---
 
-### 1. Create a Git Safety Checkpoint
+## Phase 2: Inbound Integration, Review & Build (B AI → A AI)
 
-Before overwriting any file in the local repository:
+### 1. Git Safety Checkpoint
 
-* Run `git status`.
+Run `git status`. If the tree is dirty, commit or create a named stash before anything else, so the pre-overwrite state is always recoverable.
 
-* If there are uncommitted changes, save a clean recovery point first (either commit them to the current branch or create a named stash/checkpoint) so the pre-overwrite state can always be restored cleanly.
+### 2. Staged Extraction
 
-### 2. Staged Extraction & Controlled Overwrite
+Extract into a temporary staging directory. Never extract over the working tree.
 
-Never blindly extract directly into the repository root without inspecting the archive layout:
+* Detect a wrapper folder (the returned tree often sits inside `project_name/`) and normalize the source root.
+* Read the returned `GEMINI_HANDOFF.md` §6 and §7 in full before copying a single source file.
+* Overwrite only files present in the returned tree.
+* Apply deletions only where §6 names the path.
+* Keep `GEMINI_HANDOFF.md` out of the repository; it is a working artifact, not a deliverable.
 
-* Extract B AI's returned ZIP into a temporary staging directory first.
+### 3. Ledger Verification — mechanical, before review
 
-* Check whether the archive wraps everything inside a single top-level folder (for example, `project_name/`) and normalize the source root accordingly.
+Run the completeness check before reading any diff, so a lazy round fails fast:
 
-* Read `CHANGE_REPORT.md` (or any summary file returned by B AI) in full.
+```bash
+python scripts/check_ledger.py returned/GEMINI_HANDOFF.md
+```
 
-* Copy and overwrite all modified source files into the local Git directory. Do not copy `GEMINI_HANDOFF.md` or `CHANGE_REPORT.md` into tracked repo files.
+It extracts every ID from §2–§4 and asserts each one appears in §6 with a status, and again in §7 with a status. Missing IDs, duplicate entries, or a `DONE` with no `Files:`/`Lines:` fields exit non-zero.
 
-* Delete any local files explicitly listed under `Deleted Files` in `CHANGE_REPORT.md`.
+Then verify claims against evidence:
 
-* Remove the temporary staging directory after copying.
+* Each `DONE` entry names files and line ranges — confirm the diff actually touches those ranges.
+* Each `Failed` entry is specific: error text, stopping point, attempt made.
+* Any file in the diff that no entry names is drift; report it before proceeding.
 
-### 3. Review Changes via Git Diff
+### 4. Git Diff Review
 
-Use Git to verify what B AI actually changed instead of trusting the report blindly:
+The ledger is a claim; the diff is the evidence.
 
-* Run `git status` and `git diff --stat`, then inspect `git diff` across modified files.
+* `git status` and `git diff --stat` for the blast radius.
+* Full `git diff` for intent — read it, do not skim it.
+* Cross-check against §2 (the faults), §3 (the acceptance tests), and the verbatim request.
+* Hunt for truncation, reformat noise, out-of-scope edits, and silent deletions.
 
-* Cross-check the diff against `CHANGE_REPORT.md` and the original user request.
+### 5. Local Compile & Release Build
 
-* Check for accidental file truncations, broken formatting, or unintended edits outside the task scope.
+B AI has no toolchain, so the build gate is A AI's. Run typecheck, compile, tests, then build the artifact the user asked for.
 
-### 4. Local Compile & Release Build Verification
+### 6. Error Triage
 
-Because B AI has no build toolchain, always verify compilation and packaging locally:
+* **Mechanical** (missing import, forgotten dependency, syntax typo, visibility mismatch) — fix locally, rebuild, ship. Never spend a relay round on this.
+* **Structural** (a `F-nn` not fixed, a `U-nn` unmet, a `S-nn` not audited, an entry that contradicts the diff, or a build failure that reveals a design defect) — reject the round and send a rework.
 
-* Run the project's typecheck, compiler, and test commands.
+### 7. The Rework Round — append the death record
 
-* Build the target release artifact requested by the user (such as a release executable, installer, or Android APK).
+Never overwrite the previous round. Append to the same file:
 
-### 5. Error Triage: Local Fix vs. Rework Delegation
+```
+## 9. Round <n> — Death Record (written by A AI)
 
-Decide how to handle issues based on severity:
+### Claims that failed
+- F-01: §6 says DONE at `scheduler.ts:112-140`. `git diff` shows no change in
+  that range. The claim is not in the diff.
+- F-03: no entry at all. Not attempted.
 
-* **Small or Mechanical Errors (Fix Locally)**: Missing imports, forgotten library or dependency declarations, minor syntax/type typos, or small visibility/signature mismatches. Fix these directly in the local workspace, re-run the build, and verify the release artifact succeeds. Do not ask B AI to rework minor issues.
+### Build evidence
+<verbatim compiler output, trimmed to the failing lines>
 
-* **Major Logic Flaws or Review Failure (Reject & Rework)**: Rare, but if the `git diff` review fails, core requirements were missed, or compilation reveals severe architectural or logic defects, stop local patching. Immediately document the exact failures, compiler logs, and relevant diff excerpts in a new rework `GEMINI_HANDOFF.md`, repackage at maximum compression, and hand it back to B AI for a rework round.
+### Drift
+<files changed without an entry, with the line ranges>
 
-### 6. Final Delivery Summary
+### What to do this round
+Re-open only the IDs above; keep the entries you already wrote; append new
+entries for the rework. Do not restate the whole tree.
+```
 
-Report back to the user concisely:
+B AI now reads its own failure, one ID at a time, in the same document it must keep appending to. This is the intended pressure: a lazily finished round costs a full document of its own mistakes.
 
-* Summary of accepted changes from B AI (grounded in `git diff`).
+### 8. Final Delivery Summary
 
-* Any local compile/import fixes you applied.
+Report to the user: which IDs closed, grounded in `git diff`; the mechanical fixes applied locally; the verification status; the exact path of the release artifact.
 
-* Verification status and exact path of the built release executable or APK.
+---
 
 ## Gotchas
 
-* **Never assume B AI knows this workflow**: Every rule B AI must follow (directory structure, `CHANGE_REPORT.md`, `Deleted Files`) must live inside `GEMINI_HANDOFF.md`.
-
-* **Watch for wrapper folders on unzip**: Remote AI tools often zip a parent directory instead of the root contents. Always inspect the extracted staging tree before overwriting.
-
-* **Keep handoff files out of Git**: Exclude `GEMINI_HANDOFF.md` and `CHANGE_REPORT.md` from commits so the repository stays clean.
-
-* **Do not bounce minor compile errors**: Fixing a missing import locally takes seconds and saves an entire manual ZIP relay round.
+* **Never assume B AI knows the protocol.** Every rule it must follow lives inside the handoff file. A rule that is not written there does not exist.
+* **Never write the remedy.** The moment A AI sketches the fix, the review stops being independent — A AI starts grading its own idea.
+* **A batched ledger is a lie with better formatting.** If entries arrive all at once at the end, the work was probably not done in order; check the diff harder.
+* **Wrapper folders are the default.** Inspect the staging tree before overwriting anything.
+* **Do not bounce mechanical errors.** A missing import costs seconds locally and an entire relay round remotely.
+* **A failed entry is a good entry.** B AI reporting "could not do F-03, blocker at line 88, error text attached" is a usable outcome; an empty round is not.

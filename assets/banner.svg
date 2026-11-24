@@ -56,7 +56,7 @@
     <text x="32" y="20" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="13" fill="#c7d2fe" letter-spacing="1.6">CLAUDE CODE SKILL</text>
 
     <text x="0" y="104" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="62" font-weight="700" fill="url(#title)" letter-spacing="-1.2">Gemini to Antigravity</text>
-    <text x="0" y="150" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="19" fill="#94a3b8" letter-spacing="0.2">A deterministic two-AI relay: unlimited remote quota, local build authority.</text>
+    <text x="0" y="150" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="19" fill="#94a3b8" letter-spacing="0.2">A deterministic two-AI relay: pinpoint faults, itemised ledger, local build authority.</text>
   </g>
 
   <!-- Left node: B AI / Gemini -->
@@ -75,8 +75,8 @@
     <rect x="0" y="0" width="230" height="112" rx="18" fill="none" stroke="#ffffff" stroke-opacity="0.06"/>
     <circle cx="30" cy="34" r="11" fill="#a855f7" fill-opacity="0.22" stroke="#a855f7" stroke-opacity="0.8"/>
     <text x="50" y="39" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#e2e8f0">A AI · Antigravity</text>
-    <text x="20" y="68" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="12.5" fill="#b6a4cc">git · build · review authority</text>
-    <text x="20" y="90" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="12.5" fill="#b6a4cc">compiles &amp; ships the artifact</text>
+    <text x="20" y="68" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="12.5" fill="#b6a4cc">git · build · ledger authority</text>
+    <text x="20" y="90" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="12.5" fill="#b6a4cc">verifies entries, ships artifact</text>
   </g>
 
   <!-- Beam -->
@@ -95,7 +95,7 @@
   <g transform="translate(508,326)">
     <path d="M0 0 H-132" stroke="#c084fc" stroke-width="2.5" stroke-opacity="0.9"/>
     <path d="M-124 -7 L-140 0 L-124 7 Z" fill="#c084fc"/>
-    <text x="-138" y="24" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="11.5" fill="#d0a4ff" letter-spacing="0.6">CHANGES · CHANGE_REPORT.md</text>
+    <text x="-138" y="24" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="11.5" fill="#d0a4ff" letter-spacing="0.6">SAME FILE · §6 ENTRIES + §7 AUDIT</text>
   </g>
 
   <!-- footer meta -->

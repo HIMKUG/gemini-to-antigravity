@@ -1,6 +1,5 @@
 # Handoff artifacts — never tracked
 GEMINI_HANDOFF.md
-CHANGE_REPORT.md
 *.handoff.zip
 
 # Python

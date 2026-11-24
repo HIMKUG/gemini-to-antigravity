@@ -21,28 +21,53 @@ jobs:
           echo "description length: ${#desc}"
           test "${#desc}" -lt 1024
 
-      - name: Report example has the four required sections
+      - name: Handoff example declares the required sections
         run: |
           set -e
-          for s in "Summary of Changes" "Findings on Suspect Areas" "Deleted Files" "Build & Dependency Notes"; do
-            grep -q "^## $s" examples/CHANGE_REPORT.example.md
-          done
-          echo "change report schema ok"
-
-      - name: Handoff example has the five required sections
-        run: |
-          set -e
-          grep -q '^## Environment Notice' examples/GEMINI_HANDOFF.example.md
           grep -q '^## 1. User Original Request (Verbatim)' examples/GEMINI_HANDOFF.example.md
-          grep -q '^## 2. Confirmed Issues' examples/GEMINI_HANDOFF.example.md
-          grep -q '^## 3. Suspect Areas' examples/GEMINI_HANDOFF.example.md
-          grep -q '^## 4. Deliverable & Return Contract' examples/GEMINI_HANDOFF.example.md
-          echo "handoff schema ok"
+          grep -q '^## 2. Fault Ledger'                    examples/GEMINI_HANDOFF.example.md
+          grep -q '^## 3. Requirement Ledger'              examples/GEMINI_HANDOFF.example.md
+          grep -q '^## 4. Suspect Areas'                   examples/GEMINI_HANDOFF.example.md
+          grep -q '^## 5. Execution Rules for You'         examples/GEMINI_HANDOFF.example.md
+          grep -q '^## 6. Execution Ledger'                examples/GEMINI_HANDOFF.example.md
+          grep -q '^## 7. Self-Audit Before Return'        examples/GEMINI_HANDOFF.example.md
+          grep -q '^## 8. Deliverable & Return Contract'   examples/GEMINI_HANDOFF.example.md
+          echo "handoff sections ok"
+
+      - name: Every fault heading carries a locator
+        run: |
+          set -e
+          for f in examples/GEMINI_HANDOFF.example.md examples/GEMINI_HANDOFF.lazy-round.md; do
+            awk '/^## 2\./ {ins=1; next} /^## 3\./ {ins=0} ins && /^### F-/ && !/`/ {print FILENAME": "$0; bad=1} END {exit bad+0}' "$f"
+          done
+          echo "locators ok"
+
+      - name: Fault statements contain no prescribed remedy
+        run: |
+          set -e
+          if grep -E '^\- \*\*Problem:\*\*.*(replace|change .* to|use .* instead of|should call|add a call to)' \
+               examples/GEMINI_HANDOFF.example.md; then
+            echo "a Problem field reads as a remedy; state the fault only"
+            exit 1
+          fi
+          echo "no remedy language"
+
+      - name: Ledger checker accepts the complete example
+        run: python3 scripts/check_ledger.py examples/GEMINI_HANDOFF.example.md --strict
+
+      - name: Ledger checker rejects the lazy round
+        run: |
+          set +e
+          python3 scripts/check_ledger.py examples/GEMINI_HANDOFF.lazy-round.md
+          code=$?
+          set -e
+          echo "exit=$code"
+          test "$code" -eq 1
 
       - name: Packager compiles and smoke-tests
         run: |
           set -e
-          python3 -m py_compile scripts/pack_handoff.py
+          python3 -m py_compile scripts/pack_handoff.py scripts/check_ledger.py
           rm -rf /tmp/smoke && mkdir -p /tmp/smoke/src
           cp examples/GEMINI_HANDOFF.example.md /tmp/smoke/GEMINI_HANDOFF.md
           printf 'hello\n' > /tmp/smoke/src/app.txt
@@ -79,9 +104,10 @@ jobs:
         run: |
           set -e
           for f in SKILL.md README.md README.zh-CN.md LICENSE CONTRIBUTING.md \
-                   docs/PROTOCOL.md docs/AGENT-INTEGRATION.md docs/COMPARISON.md \
-                   examples/GEMINI_HANDOFF.example.md examples/CHANGE_REPORT.example.md \
-                   scripts/pack_handoff.py assets/banner.svg assets/flow.svg; do
+                   docs/PROTOCOL.md docs/AGENT-INTEGRATION.md docs/COMPARISON.md docs/OPERATIONS.md \
+                   examples/GEMINI_HANDOFF.example.md examples/GEMINI_HANDOFF.lazy-round.md \
+                   scripts/pack_handoff.py scripts/check_ledger.py \
+                   assets/banner.svg assets/flow.svg; do
             test -f "$f"
           done
           echo "layout ok"

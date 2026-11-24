@@ -15,8 +15,9 @@ Thanks for improving Gemini to Antigravity. This is a protocol repo: most change
 # 1. Frontmatter sanity: name + description present, description under 1024 chars
 head -n 8 SKILL.md
 
-# 2. Example schema shape: the report has the four required sections
-grep -c '^## ' examples/CHANGE_REPORT.example.md
+# 2. The ledger checker passes the complete example and rejects the lazy one
+python3 scripts/check_ledger.py examples/GEMINI_HANDOFF.example.md --strict   # exit 0
+python3 scripts/check_ledger.py examples/GEMINI_HANDOFF.lazy-round.md        # exit 1
 
 # 3. Packager smoke test on a scratch directory (needs a GEMINI_HANDOFF.md at root)
 mkdir -p /tmp/smoke && printf 'smoke\n' > /tmp/smoke/app.txt
@@ -24,7 +25,7 @@ cp examples/GEMINI_HANDOFF.example.md /tmp/smoke/GEMINI_HANDOFF.md
 python3 scripts/pack_handoff.py /tmp/smoke /tmp/smoke.zip
 ```
 
-`pack_handoff.py` is dependency-free and runs on Python 3.9+; CI runs the same
+Both scripts are dependency-free and run on Python 3.9+; CI runs the same
 checks in `.github/workflows/validate.yml`.
 
 ## Pull request checklist
@@ -32,6 +33,8 @@ checks in `.github/workflows/validate.yml`.
 - [ ] `SKILL.md` frontmatter intact and accurate
 - [ ] `README.md` and `README.zh-CN.md` describe the same behavior
 - [ ] Examples still match the schema in `docs/PROTOCOL.md`
+- [ ] `check_ledger.py` passes the example and fails the lazy round
+- [ ] No `F-nn` example contains a prescribed remedy
 - [ ] No secrets, credentials, or machine-specific paths added
 - [ ] Commit message describes the *why*
 
