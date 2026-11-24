@@ -1,0 +1,38 @@
+# Handoff artifacts — never tracked
+GEMINI_HANDOFF.md
+CHANGE_REPORT.md
+*.handoff.zip
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+build/
+.next/
+.turbo/
+
+# Gradle / Kotlin / Dart
+.gradle/
+.dart_tool/
+target/
+
+# Editors and OS
+.idea/
+.vs/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+credentials.json

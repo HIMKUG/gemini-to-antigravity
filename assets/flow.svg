@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300" role="img" aria-label="Relay loop diagram">
+  <defs>
+    <linearGradient id="fband" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4285F4" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#8b5cf6" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#a855f7" stop-opacity="0.9"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="300" fill="#0a0d16"/>
+  <rect x="0" y="0" width="1200" height="300" fill="none" stroke="#ffffff" stroke-opacity="0.06"/>
+
+  <g font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif">
+    <!-- step pills -->
+    <g>
+      <rect x="40" y="110" width="180" height="60" rx="14" fill="#ffffff" fill-opacity="0.05" stroke="#4285F4" stroke-opacity="0.4"/>
+      <text x="62" y="136" font-size="12" fill="#8fb4ff" letter-spacing="1">A AI · 01</text>
+      <text x="62" y="156" font-size="13" fill="#dbe4f3">Pre-diagnosis</text>
+    </g>
+    <g>
+      <rect x="266" y="110" width="180" height="60" rx="14" fill="#ffffff" fill-opacity="0.05" stroke="#4285F4" stroke-opacity="0.4"/>
+      <text x="288" y="136" font-size="12" fill="#8fb4ff" letter-spacing="1">A AI · 02</text>
+      <text x="288" y="156" font-size="13" fill="#dbe4f3">Handoff prompt</text>
+    </g>
+    <g>
+      <rect x="492" y="110" width="180" height="60" rx="14" fill="#ffffff" fill-opacity="0.05" stroke="#4285F4" stroke-opacity="0.4"/>
+      <text x="514" y="136" font-size="12" fill="#8fb4ff" letter-spacing="1">A AI · 03</text>
+      <text x="514" y="156" font-size="13" fill="#dbe4f3">ZIP -9 snapshot</text>
+    </g>
+    <g>
+      <rect x="718" y="110" width="180" height="60" rx="14" fill="#ffffff" fill-opacity="0.05" stroke="#a855f7" stroke-opacity="0.4"/>
+      <text x="740" y="136" font-size="12" fill="#c9a4ff" letter-spacing="1">B AI · 04</text>
+      <text x="740" y="156" font-size="13" fill="#dbe4f3">Rewrite + report</text>
+    </g>
+    <g>
+      <rect x="944" y="110" width="180" height="60" rx="14" fill="#ffffff" fill-opacity="0.05" stroke="#a855f7" stroke-opacity="0.4"/>
+      <text x="966" y="136" font-size="12" fill="#c9a4ff" letter-spacing="1">A AI · 05</text>
+      <text x="966" y="156" font-size="13" fill="#dbe4f3">Review · build · ship</text>
+    </g>
+
+    <!-- connectors -->
+    <g stroke="url(#fband)" stroke-width="2">
+      <path d="M220 140 H266" fill="none"/>
+      <path d="M446 140 H492" fill="none"/>
+      <path d="M672 140 H718" fill="none"/>
+      <path d="M898 140 H944" fill="none"/>
+    </g>
+    <g fill="#8b5cf6">
+      <path d="M258 135 L266 140 L258 145 Z"/>
+      <path d="M484 135 L492 140 L484 145 Z"/>
+      <path d="M710 135 L718 140 L710 145 Z"/>
+      <path d="M936 135 L944 140 L936 145 Z"/>
+    </g>
+
+    <!-- rework loop -->
+    <path d="M1034 170 V236 H670 V170" fill="none" stroke="#f472b6" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="5 5"/>
+    <text x="726" y="258" font-size="12" fill="#f9a8d4">rework round (rare) — only for major logic flaws</text>
+
+    <text x="40" y="52" font-size="13" fill="#6b7590" letter-spacing="0.4">one relay loop · one ZIP · one authoritative diff</text>
+    <text x="40" y="76" font-size="11.5" fill="#4d566b">minor compile errors are fixed locally in seconds — never bounced back across the relay</text>
+  </g>
+</svg>
