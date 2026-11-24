@@ -11,9 +11,32 @@
 [![Agent Skills](https://img.shields.io/badge/Agent-Skills-4285F4.svg?style=for-the-badge)](https://docs.claude.com/en/docs/claude-code/skills)
 [![No Telemetry](https://img.shields.io/badge/telemetry-none-0ea5e9.svg?style=for-the-badge)](#隐私与安全)
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [快速开始](#60-秒快速开始) · [技能规范](SKILL.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [快速开始](#60-秒快速开始) · [技能规范](SKILL.md) · [协议](docs/PROTOCOL.md) · [安装](docs/AGENT-INTEGRATION.md)
 
 </div>
+
+<details>
+<summary><b>目录</b></summary>
+
+- [为什么要用](#为什么要用)
+- [它解决的问题](#它解决的问题)
+- [工作方式](#工作方式)
+- [60 秒快速开始](#60-秒快速开始)
+- [严谨性来自哪里](#严谨性来自哪里)
+- [场景配方](#场景配方)
+- [成本与延迟模型](#成本与延迟模型)
+- [威胁模型](#威胁模型)
+- [仓库结构](#仓库结构)
+- [返回契约](#返回契约)
+- [兼容性](#兼容性)
+- [设计原则](#设计原则)
+- [隐私与安全](#隐私与安全)
+- [常见问题](#常见问题)
+- [路线图](#路线图)
+- [参与贡献](#参与贡献)
+- [许可证](#许可证)
+
+</details>
 
 ---
 
@@ -175,6 +198,84 @@ B AI 不认识本技能、这个仓库或之前的对话。它必须遵守的每
 
 ---
 
+## 场景配方
+
+针对本协议存在的四类情境，可直接复制的提示词。
+
+### 配方 A · 修复间歇性崩溃
+
+```text
+出站："打包给 Gemini。崩溃在 src/core/scheduler.ts:112。
+已确认：缺少 paused 状态守卫。可疑：queue 出队路径。
+修复并审计可疑区域，返回 ZIP + CHANGE_REPORT.md。"
+入站："应用 ZIP、审查 diff、类型检查、跑 scheduler 测试、构建。"
+```
+生效的分级规则：构建中暴露的缺失 import 在本地补，绝不打回。
+
+### 配方 B · 无限配额上做全新功能
+
+```text
+出站："交接设置页功能。已确认：src/app/settings 下无既有路由。
+可疑：导航注册表、主题 token。交付完整树，不得删除任何文件。"
+入站："中转解压、审查 diff、排查越界改动，然后构建并冒烟测试。"
+```
+`Deleted Files` 是绊线 —— 全新功能应报告 `None`。
+
+### 配方 C · 机械性横扫（改名、格式化、依赖升级）
+
+```text
+出站："全仓库把 TaskHandler 改名为 JobHandler。行为不变。
+返回完整树；从未提及 TaskHandler 的文件可跳过。"
+入站："应用后用 git diff --stat 核对影响面，与本地 grep 计数一致。"
+```
+横扫最适合激进审查 diff：任何符号引用之外的改动都是漂移。
+
+### 配方 D · 移植或迁移
+
+```text
+出站："把 src/legacy/export.ts 从 CommonJS 移植到 ESM。
+已确认：6 处调用点（行号见下）。可疑：动态 require、barrel 文件。"
+入站："应用、逐处审查 import 重写，然后跑完整包构建。"
+```
+移植失败常因*遗漏*，所以 `Build & Dependency Notes` 要优先读。
+
+---
+
+## 成本与延迟模型
+
+为什么"双产物"设计优于随手复制粘贴：
+
+| 因素 | 聊天式复制粘贴 | 本协议 |
+| --- | --- | --- |
+| 前沿模型 token | 高 —— 每轮重新解释仓库 | 低 —— 只看到审查过的 diff |
+| 远端模型 token | 按粘贴计费，格式有损 | 一个 `-9` 归档，结构完整 |
+| 机械性错误往返 | 2–3 次 | 0 次 —— 本地修复 |
+| 结构性错误往返 | 2 次以上且上下文丢失 | 1 次，附带日志与 diff 片段 |
+| 每轮人工注意力 | 重粘、重讲、重信任 | 审 diff，批准或驳回 |
+| 可复现性 | 无 —— 每次粘贴都不同 | 归档 + 逐字需求 = 可审计 |
+
+归档是工作单元，其余都是对该单元的审查步骤。
+
+---
+
+## 威胁模型
+
+本协议防御什么，以及不防御什么。
+
+| 威胁 | 缓解 | 残余风险 |
+| --- | --- | --- |
+| 密钥泄入交接包 | `.env*`、`*.pem`、`*.key` 黑名单，打包器写后扫描 | 以异常文件名伪装的密钥 |
+| 破坏性覆盖 | 写前 Git 安全点；中转解压 | 从未 stash 的本地未提交改动 |
+| 静默删文件 | `Deleted Files` 是唯一授权删除通道 | 报告写 `None` 却实际删除 —— 由 `git status` 捕获 |
+| 越界改动 | 完整 `git diff` 对照逐字需求 | 超大 diff 的审查疲劳 —— 拆分交接 |
+| 远端代码不可构建 | 本地强制构建闸门 | 能构建但行为错误 —— 由测试兜底 |
+| 供应链注入 | `Build & Dependency Notes` 在进入构建前点名新依赖 | 加了依赖却没报告 —— 由锁文件 diff 捕获 |
+| 归档炸弹 / 超大 ZIP | 排除清单 + 字节数报告 | 确实应进归档的二进制资源 |
+
+不防御：恶意远端模型在请求范围内植入后门逻辑。diff 审查与测试是你唯一的控制手段 —— 读 diff，不要读报告。
+
+---
+
 ## 仓库结构
 
 ```
@@ -190,10 +291,24 @@ gemini-to-antigravity/
 │   ├── GEMINI_HANDOFF.example.md # 出站提示示例
 │   └── CHANGE_REPORT.example.md  # 入站报告示例
 ├── scripts/
-│   └── pack_handoff.py           # 确定性 ZIP -9 打包器
-└── docs/
-    └── PROTOCOL.md               # 形式化不变量与消息结构
+│   └── pack_handoff.py           # ZIP -9 打包 + 写后校验
+├── docs/
+│   ├── PROTOCOL.md               # 形式化不变量、状态机、一致性清单
+│   ├── AGENT-INTEGRATION.md      # 安装到 Claude Code、Cursor、Codex、MCP
+│   ├── COMPARISON.md             # 与复制粘贴、补丁接力、分支交接对比
+│   └── OPERATIONS.md             # 轮次规模、调度、升级处置手册
+└── .github/workflows/validate.yml # CI：schema、打包器冒烟、链接检查
 ```
+
+| 文档 | 何时读 |
+| --- | --- |
+| [SKILL.md](SKILL.md) | 你是执行一轮接力的智能体 |
+| [docs/PROTOCOL.md](docs/PROTOCOL.md) | 需要形式化不变量或一致性清单 |
+| [docs/AGENT-INTEGRATION.md](docs/AGENT-INTEGRATION.md) | 正在把本技能装进某个运行时 |
+| [docs/COMPARISON.md](docs/COMPARISON.md) | 正在判断本协议是否适用 |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | 某轮失败，或准备连做多轮 |
+| [examples/](examples) | 想要可直接照抄的交接与报告 |
+| [CHANGELOG.md](CHANGELOG.md) | 想知道改了什么、为什么改 |
 
 ---
 
@@ -285,7 +400,7 @@ B AI 必须只回一个 ZIP：
 支持。排除清单按相对路径生效，布局逐字保留，工作区结构完好。
 
 **有自动打包器吗？**
-有 —— [`scripts/pack_handoff.py`](scripts/pack_handoff.py) 用默认黑名单产出确定性 `-9` 归档。
+有 —— [`scripts/pack_handoff.py`](scripts/pack_handoff.py) 用默认黑名单产出 `-9` 归档，并校验交接文件位于根目录、未混入任何密钥文件。
 
 ---
 

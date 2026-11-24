@@ -1,0 +1,87 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  skill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Frontmatter present and well-formed
+        run: |
+          set -e
+          test "$(head -n 1 SKILL.md)" = "---"
+          grep -q '^name: gemini-to-antigravity$' SKILL.md
+          desc=$(sed -n 's/^description: //p' SKILL.md | head -n 1)
+          test -n "$desc"
+          echo "description length: ${#desc}"
+          test "${#desc}" -lt 1024
+
+      - name: Report example has the four required sections
+        run: |
+          set -e
+          for s in "Summary of Changes" "Findings on Suspect Areas" "Deleted Files" "Build & Dependency Notes"; do
+            grep -q "^## $s" examples/CHANGE_REPORT.example.md
+          done
+          echo "change report schema ok"
+
+      - name: Handoff example has the five required sections
+        run: |
+          set -e
+          grep -q '^## Environment Notice' examples/GEMINI_HANDOFF.example.md
+          grep -q '^## 1. User Original Request (Verbatim)' examples/GEMINI_HANDOFF.example.md
+          grep -q '^## 2. Confirmed Issues' examples/GEMINI_HANDOFF.example.md
+          grep -q '^## 3. Suspect Areas' examples/GEMINI_HANDOFF.example.md
+          grep -q '^## 4. Deliverable & Return Contract' examples/GEMINI_HANDOFF.example.md
+          echo "handoff schema ok"
+
+      - name: Packager compiles and smoke-tests
+        run: |
+          set -e
+          python3 -m py_compile scripts/pack_handoff.py
+          rm -rf /tmp/smoke && mkdir -p /tmp/smoke/src
+          cp examples/GEMINI_HANDOFF.example.md /tmp/smoke/GEMINI_HANDOFF.md
+          printf 'hello\n' > /tmp/smoke/src/app.txt
+          printf 'secret\n' > /tmp/smoke/.env
+          mkdir -p /tmp/smoke/node_modules && printf 'x\n' > /tmp/smoke/node_modules/junk.txt
+          python3 scripts/pack_handoff.py /tmp/smoke /tmp/smoke.zip
+          python3 - <<'PY'
+          import zipfile
+          names = zipfile.ZipFile('/tmp/smoke.zip').namelist()
+          assert names.count('GEMINI_HANDOFF.md') == 1, names
+          assert 'src/app.txt' in names, names
+          assert '.env' not in names, names
+          assert not any(n.startswith('node_modules/') for n in names), names
+          print('smoke ok:', names)
+          PY
+
+      - name: Relative links resolve
+        run: |
+          set -e
+          rc=0
+          for f in README.md README.zh-CN.md CONTRIBUTING.md docs/*.md; do
+            targets=$(grep -oE '\]\([^)#]+\)' "$f" | sed 's/^](//; s/)$//' | grep -v -E '^(http|mailto)' || true)
+            for target in $targets; do
+              if [ ! -e "$target" ]; then
+                echo "missing link target in $f: $target"
+                rc=1
+              fi
+            done
+          done
+          test "$rc" -eq 0
+          echo "links ok"
+
+      - name: Required files exist
+        run: |
+          set -e
+          for f in SKILL.md README.md README.zh-CN.md LICENSE CONTRIBUTING.md \
+                   docs/PROTOCOL.md docs/AGENT-INTEGRATION.md docs/COMPARISON.md \
+                   examples/GEMINI_HANDOFF.example.md examples/CHANGE_REPORT.example.md \
+                   scripts/pack_handoff.py assets/banner.svg assets/flow.svg; do
+            test -f "$f"
+          done
+          echo "layout ok"

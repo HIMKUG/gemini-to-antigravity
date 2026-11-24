@@ -12,9 +12,32 @@
 [![No Telemetry](https://img.shields.io/badge/telemetry-none-0ea5e9.svg?style=for-the-badge)](#privacy--security)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ec4899.svg?style=for-the-badge)](CONTRIBUTING.md)
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [Quick Start](#quick-start-in-60-seconds) · [Skill Spec](SKILL.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [Quick Start](#quick-start-in-60-seconds) · [Skill Spec](SKILL.md) · [Protocol](docs/PROTOCOL.md) · [Install](docs/AGENT-INTEGRATION.md)
 
 </div>
+
+<details>
+<summary><b>Contents</b></summary>
+
+- [Why this exists](#why-this-exists)
+- [The problem it solves](#the-problem-it-solves)
+- [How it works](#how-it-works)
+- [Quick start in 60 seconds](#quick-start-in-60-seconds)
+- [What makes it rigorous](#what-makes-it-rigorous)
+- [Recipes](#recipes)
+- [Cost & latency model](#cost--latency-model)
+- [Threat model](#threat-model)
+- [Repository layout](#repository-layout)
+- [The return contract](#the-return-contract)
+- [Compatibility](#compatibility)
+- [Design principles](#design-principles)
+- [Privacy & security](#privacy--security)
+- [FAQ](#faq)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+
+</details>
 
 ---
 
@@ -185,6 +208,86 @@ A missing import costs seconds locally and a full human relay round remotely. Th
 
 ---
 
+## Recipes
+
+Copy-pasteable prompts for the four situations this protocol exists for.
+
+### Recipe A · Fix an intermittent crash
+
+```text
+Outbound: "Package for Gemini. Crash is src/core/scheduler.ts:112.
+Confirmed: no paused-status guard. Suspect: queue dequeue path.
+Fix it, audit the suspects, return a ZIP + CHANGE_REPORT.md."
+Inbound : "Apply the ZIP, review the diff, typecheck, run scheduler tests, build."
+```
+Triage rule in play: a missing import that appears during the build is patched locally, never bounced.
+
+### Recipe B · Greenfield feature on an unlimited quota
+
+```text
+Outbound: "Hand off the settings-screen feature. Confirmed: no existing route
+under src/app/settings. Suspect: navigation registry, theme tokens.
+Deliver the full tree; do not delete anything."
+Inbound : "Stage, diff, review scope creep, then build and smoke-test."
+```
+The `Deleted Files` field is your tripwire — a greenfield task should report `None`.
+
+### Recipe C · Mechanical sweep (rename, format, dependency bump)
+
+```text
+Outbound: "Rename TaskHandler → JobHandler across the repo. No behavior change.
+Return the full tree; skip files that never mention TaskHandler."
+Inbound : "Apply, then git diff --stat to confirm the blast radius matches
+the grep count you measured locally."
+```
+A sweep is the best place to diff-review aggressively: any edit outside the symbol's references is drift.
+
+### Recipe D · Port or migration
+
+```text
+Outbound: "Port src/legacy/export.ts from CommonJS to ESM. Confirmed:
+6 call sites at lines listed below. Suspect: dynamic requires, barrel files."
+Inbound : "Apply, review each import rewrite, then run the full package build."
+```
+Ports fail through *omission*, so `Build & Dependency Notes` is the section to read first.
+
+---
+
+## Cost & latency model
+
+Why the two-ARTIFACT design beats ad-hoc copy-paste:
+
+| Factor | Ad-hoc chat copy-paste | This protocol |
+| --- | --- | --- |
+| Tokens spent on frontier model | Large — you re-explain the repo each round | Small — frontier model sees only the reviewed diff |
+| Tokens spent on remote model | You pay per paste, with lossy formatting | One `-9` archive, structure intact |
+| Round trips for a mechanical error | 2–3 | 0 — patched locally |
+| Round trips for a structural error | 2+ with lost context | 1, with logs and diff excerpts attached |
+| Human attention per round | Re-paste, re-explain, re-trust | Review the diff, approve or reject |
+| Reproducibility | None — each paste differs | Archive + verbatim request = auditable |
+
+The archive is the unit of work. Everything else is a review step on that unit.
+
+---
+
+## Threat model
+
+What this protocol defends against, and what it does not.
+
+| Threat | Mitigation | Residual risk |
+| --- | --- | --- |
+| Secret leakage into the handoff | Denylist of `.env*`, `*.pem`, `*.key`, plus a post-write scan in the packager | A secret hiding under an unusual filename |
+| Destructive overwrite | Git checkpoint before any write; staged extraction | Uncommitted local work that was never stashed |
+| Silent file deletion | `Deleted Files` is the only authorized deletion channel | A deletion reported as `None` but executed anyway — caught by `git status` |
+| Out-of-scope mutation | Full `git diff` review against the verbatim request | Review fatigue on very large diffs — split large handoffs |
+| Broken remote code shipped | Build gate is local and mandatory | A build that passes while the behavior is wrong — covered by tests |
+| Supply-chain injection | `Build & Dependency Notes` names new packages before they enter the build | A dependency added but not reported — caught by lockfile diff |
+| Archive bomb / huge ZIP | Exclusion list plus a byte-size report | Binary assets that legitimately belong in the archive |
+
+Not defended: a malicious remote model that writes backdoor logic inside the requested change. The diff review and tests are your only controls there; read the diff, not the report.
+
+---
+
 ## Repository layout
 
 ```
@@ -200,10 +303,24 @@ gemini-to-antigravity/
 │   ├── GEMINI_HANDOFF.example.md # Filled-out outbound prompt
 │   └── CHANGE_REPORT.example.md  # Filled-out inbound report
 ├── scripts/
-│   └── pack_handoff.py           # Deterministic ZIP -9 packager
-└── docs/
-    └── PROTOCOL.md               # Formal invariants and message schema
+│   └── pack_handoff.py           # ZIP -9 packager + post-write verification
+├── docs/
+│   ├── PROTOCOL.md               # Formal invariants, state machine, conformance
+│   ├── AGENT-INTEGRATION.md      # Install into Claude Code, Cursor, Codex, MCP
+│   ├── COMPARISON.md             # Versus copy-paste, patch relay, branch handoff
+│   └── OPERATIONS.md             # Round sizing, scheduling, escalation runbook
+└── .github/workflows/validate.yml # CI: schemas, packager smoke test, links
 ```
+
+| Document | Read it when |
+| --- | --- |
+| [SKILL.md](SKILL.md) | You are an agent executing a relay round |
+| [docs/PROTOCOL.md](docs/PROTOCOL.md) | You need the formal invariants or a conformance checklist |
+| [docs/AGENT-INTEGRATION.md](docs/AGENT-INTEGRATION.md) | You are installing this into a runtime |
+| [docs/COMPARISON.md](docs/COMPARISON.md) | You are deciding whether this protocol fits |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | A round failed, or you are planning several |
+| [examples/](examples) | You want a filled-out handoff and report to copy |
+| [CHANGELOG.md](CHANGELOG.md) | You want to know what changed and why |
 
 ---
 
@@ -295,7 +412,7 @@ The `Deleted Files` section is the only authorized deletion channel. Anything de
 Yes. The exclusion list is path-relative and the layout is preserved verbatim, so workspace structure survives intact.
 
 **Is there an automated packager?**
-Yes — [`scripts/pack_handoff.py`](scripts/pack_handoff.py) produces a deterministic `-9` archive with the default denylist.
+Yes — [`scripts/pack_handoff.py`](scripts/pack_handoff.py) writes a `-9` archive with the default denylist, then verifies the handoff file is at the root and that no secret-bearing file leaked in.
 
 ---
 

@@ -5,8 +5,9 @@ Usage:
     python pack_handoff.py <repo-dir> <output.zip> [--handoff GEMINI_HANDOFF.md]
 
 The archive is written with DEFLATE level 9 and a named denylist so the result
-stays small, reproducible, and free of build artifacts. `GEMINI_HANDOFF.md`
-is placed at the archive root and verified after writing.
+stays small and free of build artifacts. `GEMINI_HANDOFF.md` is placed at the
+archive root and verified after writing, and the archive is scanned for
+secret-bearing filenames before the path is reported.
 
 Exit codes:
     0  archive written and verified
@@ -75,14 +76,20 @@ def is_excluded(rel: Path) -> bool:
     return False
 
 
-def iter_source(root: Path) -> list[Path]:
-    """Collect every file under root that survives the denylist."""
+def iter_source(root: Path, skip: Path | None = None) -> list[Path]:
+    """Collect every file under root that survives the denylist.
+
+    `skip` is excluded from the result so the handoff file is not written twice
+    when it already lives inside the repository.
+    """
     files: list[Path] = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in EXCLUDED_DIRS]
         base = Path(dirpath)
         for filename in filenames:
             full = base / filename
+            if skip is not None and full == skip:
+                continue
             try:
                 rel = full.relative_to(root)
             except ValueError:
@@ -97,10 +104,11 @@ def iter_source(root: Path) -> list[Path]:
 
 def write_archive(root: Path, out: Path, handoff: Path | None) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
+    skip = handoff if handoff and handoff.is_file() else None
     with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
-        if handoff and handoff.is_file():
-            zf.write(handoff, arcname=handoff.name)
-        for full in iter_source(root):
+        if skip:
+            zf.write(skip, arcname=skip.name)
+        for full in iter_source(root, skip=skip):
             zf.write(full, arcname=str(full.relative_to(root)).replace(os.sep, "/"))
 
 
@@ -149,7 +157,7 @@ def main(argv: list[str]) -> int:
         return 2
 
     size = out.stat().st_size
-    count = len(iter_source(root))
+    count = len(iter_source(root, skip=handoff))
     print(f"handoff  {out}")
     print(f"files    {count}")
     print(f"bytes    {size}")
